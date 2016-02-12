@@ -1,0 +1,50 @@
+## Notre SI
+bouchon:
+  image: httpd:2.4
+  ports:
+    - "9090:80"
+  volumes:
+    - ../bouchon:/usr/local/apache2/htdocs
+open:
+  build: ../open
+  ports:
+    - "9092:80"
+  links:
+    - tyk_gateway:api.local
+
+## Tyk configuration
+ambassador:
+    image: cpuguy83/docker-grand-ambassador
+    volumes:
+        - /var/run/docker.sock:/run/docker.sock
+    command: "-name compose_tyk_gateway_1 -name compose_tyk_dashboard_1"
+tyk_gateway:
+    image: tykio/tyk-gateway:latest
+    links:
+        - tyk_redis:redis
+        - tyk_mongo:mongo
+        - ambassador:tyk_dashboard
+        - bouchon:bouchon.local
+    ports:
+        - "80:8080"
+        - "8080:8080"
+    volumes:
+        - ../tyk/tyk.conf:/opt/tyk-gateway/tyk.conf
+tyk_dashboard:
+    image: tykio/tyk-dashboard:latest
+    links:
+        - tyk_redis:redis
+        - tyk_mongo:mongo
+        - tyk_gateway:tyk_gateway
+        - ambassador:tyk_gateway
+    ports:
+        - "3000:3000"
+    volumes:
+        - ../tyk/tyk_analytics.conf:/opt/tyk-dashboard/tyk_analytics.conf
+tyk_redis:
+    image: redis:latest
+    hostname: redis
+tyk_mongo:
+    image: mongo:latest
+    command: ["mongod", "--smallfiles"]
+    hostname: mongo
